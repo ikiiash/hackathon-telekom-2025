@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:namer_app/auth/auth_gate.dart';
+import 'package:namer_app/config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Load .env file BEFORE accessing SupabaseConfig
+  await dotenv.load(fileName: ".env");
+
   await Supabase.initialize(
-    url: 'https://cmeubftrgoajnnouvmfd.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtZXViZnRyZ29ham5ub3V2bWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTk4MzQsImV4cCI6MjA3OTgzNTgzNH0.G-nSY36nK1B1y2d2TaQQpKbqj_hIU2i4DWayUUby7fg',
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
-  runApp(DevicePreview(builder: (context) => MyApp()));
+  // runApp(DevicePreview(builder: (context) => MyApp()));
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
