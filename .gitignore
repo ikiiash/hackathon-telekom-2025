@@ -1,0 +1,10 @@
+# Node modules (for Supabase CLI)
+node_modules/
+package-lock.json
+
+# Supabase
+.env
+.env.local
+
+# OS files
+.DS_Store
