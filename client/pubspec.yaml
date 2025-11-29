@@ -15,7 +15,10 @@ dependencies:
   supabase_flutter: ^2.10.3
   dot_shorthand_converter: ^0.0.4
   flutter_dotenv: ^5.1.0
-  
+  image_picker: ^1.0.7
+  http: ^1.2.0
+  intl: ^0.20.2
+  uuid: ^4.3.3
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:device_preview/device_preview.dart';
-import 'package:namer_app/auth/auth_gate.dart';
 import 'package:namer_app/config/supabase_config.dart';
+import 'package:namer_app/pages/chat_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -16,8 +15,7 @@ void main() async {
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
-  // runApp(DevicePreview(builder: (context) => MyApp()));
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -26,7 +24,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: AuthGate(),
+      title: 'TrustAI',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
+        useMaterial3: true,
+      ),
+      // Temporarily bypass auth - go directly to chat
+      home: const ChatPage(),
+      // Uncomment this line when you want to re-enable auth:
+      // home: AuthGate(),
     );
   }
 }
+
