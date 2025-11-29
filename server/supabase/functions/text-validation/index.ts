@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { OpenAIConfig } from "../configs/openAI-config.ts";
 
 serve(async (req) => {
     try {
@@ -26,25 +27,7 @@ serve(async (req) => {
             });
         }
 
-        const prompt = `
-            Your task is to extract all factual statements or questions from the user's message.
-
-            Rules:
-            - Ignore filler, slang, jokes, greetings, personal info, and irrelevant text.
-            - Identify every question or factual claim the user is asking about or stating.
-            - Convert questions into declarative factual statements if needed.
-            - Keep the meaning identical to the original text.
-            - Output must be in strict JSON format with an array field "facts":
-            {
-              "facts": ["fact or question 1", "fact or question 2", ...]
-            }
-            - If there are no facts or questions, return:
-            {
-              "facts": []
-            }
-            
-            Here is user text: ${text}.
-        `;
+        const prompt = `${OpenAIConfig.PROMPTS.EXTRACT_TEXT_CONTEXT} ${text}.`;
 
         const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -53,7 +36,7 @@ serve(async (req) => {
                 Authorization: `Bearer ${OPENAI_KEY}`,
             },
             body: JSON.stringify({
-                model: "gpt-4.1",
+                model: OpenAIConfig.MODELS.TEXT,
                 messages: [{ role: "user", content: prompt }],
                 temperature: 0,
             }),
