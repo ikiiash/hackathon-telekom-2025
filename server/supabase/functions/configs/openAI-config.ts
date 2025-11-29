@@ -51,5 +51,30 @@ export const OpenAIConfig = {
           ]
         }
         Strict JSON only.`,
+
+    IMAGE_AI_DETECTION: `Analyze this image for AI generation authenticity.
+
+You will receive:
+1. The image itself
+2. EXIF metadata analysis (if available)
+
+EXIF metadata is crucial: Real photos from cameras/phones contain EXIF data with camera make, model, settings, etc. AI-generated images typically lack this metadata or have suspicious patterns.
+
+Look for these AI generation indicators:
+- Visual artifacts (unnatural textures, weird fingers/hands, impossible geometry)
+- Uncanny valley faces or expressions
+- Inconsistent lighting or shadows
+- Unrealistic details or patterns
+- Too-perfect compositions
+- Absence of EXIF data (strong indicator of AI generation)
+- Software metadata indicating AI tools (DALL-E, Midjourney, Stable Diffusion, etc.)
+
+Provide a VERY SHORT response in this exact JSON format:
+{
+  "description": "Brief 1-sentence description of what's in the image",
+  "is_ai_generated": true or false,
+  "confidence": number between 0-100,
+  "reasoning": "Short explanation considering both visual analysis AND EXIF metadata findings"
+}`,
   },
 };
