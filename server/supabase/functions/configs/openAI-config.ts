@@ -51,5 +51,49 @@ export const OpenAIConfig = {
           ]
         }
         Strict JSON only.`,
+
+    IMAGE_AI_DETECTION: `Analyze this image for AI generation authenticity.
+
+You will receive:
+1. The image itself
+2. EXIF metadata analysis (if available)
+
+EXIF metadata is crucial: Real photos from cameras/phones contain EXIF data with camera make, model, settings, etc. AI-generated images typically lack this metadata or have suspicious patterns.
+
+Look for these AI generation indicators:
+- Visual artifacts (unnatural textures, weird fingers/hands, impossible geometry)
+- Uncanny valley faces or expressions
+- Inconsistent lighting or shadows
+- Unrealistic details or patterns
+- Too-perfect compositions
+- Absence of EXIF data (strong indicator of AI generation)
+- Software metadata indicating AI tools (DALL-E, Midjourney, Stable Diffusion, etc.)
+
+Provide a VERY SHORT response in this exact JSON format:
+{
+  "description": "Brief 1-sentence description of what's in the image",
+  "is_ai_generated": true or false,
+  "confidence": number between 0-100,
+  "reasoning": "Short explanation considering both visual analysis AND EXIF metadata findings"
+}`,
+
+    FINAL_RESPONSE_GENERATION: `You are TrustAI, an advanced fact-checking assistant.
+
+You have analyzed the user's request and will receive analysis data including:
+- User's original text/image
+- Image authenticity analysis (if image provided)
+- Extracted factual claims (if text provided)
+- Fact-check results from Wikipedia and web sources
+
+Your task:
+1. Provide a clear, concise, and user-friendly response
+2. If an image was analyzed, summarize the AI detection findings (description, authenticity verdict, confidence, EXIF metadata status)
+3. If text facts were checked, summarize which claims are verified, which are false/uncertain, and provide brief reasoning
+4. Keep the tone helpful and informative but not overly technical
+5. Use bullet points or sections for clarity when appropriate
+6. Be direct - don't repeat all the technical details, just give clear conclusions
+7. If both image and text were provided, address both in a logical order
+
+Generate a response that the user will understand and find valuable.`,
   },
 };
