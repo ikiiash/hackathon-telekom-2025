@@ -43,17 +43,56 @@ class ChatService {
     }
   }
 
+  /// Uploads a video to Supabase Storage and returns the public URL
+  Future<String> uploadVideo(File videoFile) async {
+    try {
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${videoFile.path.split('/').last}';
+      final filePath = 'uploads/$fileName';
+
+      // Determine content type from file extension
+      String contentType = 'video/mp4';
+      final ext = videoFile.path.split('.').last.toLowerCase();
+      if (ext == 'mov') contentType = 'video/quicktime';
+      if (ext == 'avi') contentType = 'video/x-msvideo';
+      if (ext == 'webm') contentType = 'video/webm';
+
+      // Read bytes async
+      final bytes = await videoFile.readAsBytes();
+
+      // Upload to Supabase Storage
+      await _supabase.storage.from('fact-checker-video').uploadBinary(
+        filePath,
+        bytes,
+        fileOptions: FileOptions(
+          upsert: false,
+          contentType: contentType,
+        ),
+      );
+
+      // Get public URL
+      final videoUrl =
+      _supabase.storage.from('fact-checker-video').getPublicUrl(filePath);
+
+      return videoUrl;
+    } catch (e) {
+      throw Exception('Failed to upload video: $e');
+    }
+  }
+
   /// Calls the Supabase Edge Function for analysis.
   /// If chatId is provided, backend will append messages to that chat.
   Future<Map<String, dynamic>> analyzeContent({
     String? text, // може бути null/порожній при фото-only
     String? imageUrl,
+    String? videoUrl,
     String? chatId,
   }) async {
     try {
       final body = <String, dynamic>{
         if (text != null) 'text': text,
         if (imageUrl != null) 'image_url': imageUrl,
+        if (videoUrl != null) 'video_url': videoUrl,
         if (chatId != null) 'chat_id': chatId,
         'timestamp': DateTime.now().toIso8601String(),
       };
@@ -76,7 +115,7 @@ class ChatService {
     }
   }
 
-  /// Complete flow: optional image upload + analyze with Edge Function.
+  /// Complete flow: optional image/video upload + analyze with Edge Function.
   ///
   /// Повертає JSON з бекенду, де ти зможеш взяти:
   ///   result['chat_id']  - поточний чат
@@ -84,23 +123,31 @@ class ChatService {
   Future<Map<String, dynamic>> processMessage({
     String? text, // дозв. порожній для чистого фото
     File? imageFile,
+    File? videoFile,
     String? chatId, // поточний чат (може бути null для першого меседжа)
   }) async {
     String? imageUrl;
+    String? videoUrl;
 
     // Upload image if present
     if (imageFile != null) {
       imageUrl = await uploadImage(imageFile);
     }
 
-    if ((text == null || text.trim().isEmpty) && imageUrl == null) {
-      throw Exception('Either text or image must be provided');
+    // Upload video if present
+    if (videoFile != null) {
+      videoUrl = await uploadVideo(videoFile);
+    }
+
+    if ((text == null || text.trim().isEmpty) && imageUrl == null && videoUrl == null) {
+      throw Exception('Either text, image or video must be provided');
     }
 
     // Call Edge Function for analysis (backend handles chat + history)
     final result = await analyzeContent(
       text: text,
       imageUrl: imageUrl,
+      videoUrl: videoUrl,
       chatId: chatId,
     );
 
@@ -141,6 +188,8 @@ class ChatService {
       return list.map((row) {
         final role = row['role'] as String?;
         final isUser = role == 'user';
+        final debug = row['debug'] as Map<String, dynamic>?;
+        final videoUrl = debug?['video_url'] as String?;
 
         return ChatMessage(
           id: row['id'] as String,
@@ -148,11 +197,10 @@ class ChatService {
           type: isUser ? MessageType.user : MessageType.bot,
           timestamp: DateTime.parse(row['created_at'] as String),
           imageUrl: row['image_url'] as String?,
+          videoUrl: videoUrl,
           imagePath: null,
           status: MessageStatus.sent,
-          analysisResult: row['debug'] is Map<String, dynamic>
-              ? row['debug'] as Map<String, dynamic>
-              : null,
+          analysisResult: debug,
         );
       }).toList();
     } catch (e) {

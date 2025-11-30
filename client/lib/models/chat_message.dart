@@ -8,6 +8,7 @@ class ChatMessage {
   final MessageType type;
   final DateTime timestamp;
   final String? imageUrl;
+  final String? videoUrl;
   final String? imagePath; // Local path for preview
   final MessageStatus status;
   final Map<String, dynamic>? analysisResult;
@@ -18,6 +19,7 @@ class ChatMessage {
     required this.type,
     required this.timestamp,
     this.imageUrl,
+    this.videoUrl,
     this.imagePath,
     this.status = MessageStatus.sent,
     this.analysisResult,
@@ -29,6 +31,7 @@ class ChatMessage {
     MessageType? type,
     DateTime? timestamp,
     String? imageUrl,
+    String? videoUrl,
     String? imagePath,
     MessageStatus? status,
     Map<String, dynamic>? analysisResult,
@@ -39,6 +42,7 @@ class ChatMessage {
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
       imageUrl: imageUrl ?? this.imageUrl,
+      videoUrl: videoUrl ?? this.videoUrl,
       imagePath: imagePath ?? this.imagePath,
       status: status ?? this.status,
       analysisResult: analysisResult ?? this.analysisResult,

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 class ChatInput extends StatelessWidget {
   final TextEditingController messageController;
   final File? selectedImage;
+  final File? selectedVideo;
   final bool isLoading;
   final VoidCallback onPickImage;
+  final VoidCallback onPickVideo;
   final VoidCallback onRemoveImage;
   final VoidCallback onSendMessage;
 
@@ -13,8 +15,10 @@ class ChatInput extends StatelessWidget {
     super.key,
     required this.messageController,
     required this.selectedImage,
+    required this.selectedVideo,
     required this.isLoading,
     required this.onPickImage,
+    required this.onPickVideo,
     required this.onRemoveImage,
     required this.onSendMessage,
   });
@@ -51,6 +55,33 @@ class ChatInput extends StatelessWidget {
             ),
           ),
 
+        // Video preview
+        if (selectedVideo != null)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.videocam, size: 30, color: Colors.grey[700]),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Video selected'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_outlined),
+                  onPressed: onRemoveImage,
+                ),
+              ],
+            ),
+          ),
+
         // Input field - Capsule design
         Container(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -69,12 +100,41 @@ class ChatInput extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Paperclip icon inside capsule
-                  IconButton(
+                  // Paperclip icon with popup menu
+                  PopupMenuButton<String>(
                     icon: Icon(Icons.attach_file_outlined, size: 22, color: Colors.grey[700]),
-                    onPressed: isLoading ? null : onPickImage,
-                    tooltip: 'Attach image',
+                    enabled: !isLoading,
+                    tooltip: 'Attach media',
                     padding: const EdgeInsets.all(8),
+                    onSelected: (value) {
+                      if (value == 'image') {
+                        onPickImage();
+                      } else if (value == 'video') {
+                        onPickVideo();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'image',
+                        child: Row(
+                          children: [
+                            Icon(Icons.image_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Image'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'video',
+                        child: Row(
+                          children: [
+                            Icon(Icons.videocam_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Video'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   // Text field
                   Expanded(

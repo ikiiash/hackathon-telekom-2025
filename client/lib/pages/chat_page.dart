@@ -32,6 +32,7 @@ class _ChatPageState extends State<ChatPage> {
   final List<ChatListItem> _chats = [];
 
   File? _selectedImage;
+  File? _selectedVideo;
   bool _isLoading = false;
 
   /// Поточний активний чат (id з БД). Якщо null — це новий чат,
@@ -114,6 +115,7 @@ class _ChatPageState extends State<ChatPage> {
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
+          _selectedVideo = null; // Clear video if image is selected
         });
       }
     } catch (e) {
@@ -121,10 +123,27 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _pickVideo() async {
+    try {
+      final XFile? video = await _imagePicker.pickVideo(
+        source: ImageSource.gallery,
+      );
+
+      if (video != null) {
+        setState(() {
+          _selectedVideo = File(video.path);
+          _selectedImage = null; // Clear image if video is selected
+        });
+      }
+    } catch (e) {
+      _showError('Failed to pick video: $e');
+    }
+  }
+
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
 
-    if (text.isEmpty && _selectedImage == null) return;
+    if (text.isEmpty && _selectedImage == null && _selectedVideo == null) return;
 
     // 1) локальне user-повідомлення (саме те, що ввів юзер)
     final userMessage = ChatMessage(
@@ -143,8 +162,10 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     final imageFile = _selectedImage;
+    final videoFile = _selectedVideo;
     setState(() {
       _selectedImage = null;
+      _selectedVideo = null;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -154,6 +175,7 @@ class _ChatPageState extends State<ChatPage> {
       final result = await _chatService.processMessage(
         text: text.isEmpty ? null : text,
         imageFile: imageFile,
+        videoFile: videoFile,
         chatId: _currentChatId, // якщо null -> бекенд створить новий чат
       );
 
@@ -217,6 +239,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _messages.clear();
       _selectedImage = null;
+      _selectedVideo = null;
       _messageController.clear();
       _currentChatId = null;
     });
@@ -505,11 +528,14 @@ class _ChatPageState extends State<ChatPage> {
                       ChatInput(
                         messageController: _messageController,
                         selectedImage: _selectedImage,
+                        selectedVideo: _selectedVideo,
                         isLoading: _isLoading,
                         onPickImage: _pickImage,
+                        onPickVideo: _pickVideo,
                         onRemoveImage: () {
                           setState(() {
                             _selectedImage = null;
+                            _selectedVideo = null;
                           });
                         },
                         onSendMessage: _sendMessage,
@@ -595,6 +621,52 @@ class _MessageBubble extends StatelessWidget {
                               child: const Icon(Icons.broken_image, size: 40),
                             );
                           },
+                        ),
+                      ),
+                    ),
+                  if (message.videoUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        width: 200,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: const Icon(
+                                Icons.play_circle_outline,
+                                size: 60,
+                                color: Colors.white70,
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Video',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

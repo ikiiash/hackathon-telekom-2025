@@ -16,10 +16,10 @@ serve(async (req) => {
             return json({ error: "Only POST allowed" }, 405);
         }
         
-        const { text, image_url, chat_id, video } = await req.json().catch(() => ({}));
+        const { text, image_url, chat_id, video_url } = await req.json().catch(() => ({}));
 
 
-        if (!text && !image_url && !video) {
+        if (!text && !image_url && !video_url) {
             return json(
                 {
                     error:
@@ -122,17 +122,17 @@ serve(async (req) => {
 
 
         // 2.4 video-analysis (локальний сервіс)
-        if (video) {
+        if (video_url) {
             try {
                 const videoResp = await fetch(
-                    "http://localhost:3000/analyze-video",
+                    "https://postnephritic-teofila-remorselessly.ngrok-free.dev/analyze-video",
                     {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
-                            video,
+                            video_url,
                             // якщо потрібно — можна додати ще meta, userId, etc.
                         }),
                     },
@@ -152,7 +152,7 @@ serve(async (req) => {
         const analysisContext = {
             user_text: text || "(no text provided)",
             user_image: image_url ? "User provided an image" : "No image provided",
-            user_video: video ? "User provided a video" : "No video provided",
+            user_video: video_url ? "User provided a video" : "No video provided",
             image_analysis: imageAnalysis,
             extracted_facts: textFacts,
             fact_check_results: factCheckResults,
@@ -229,9 +229,11 @@ ${JSON.stringify(analysisContext, null, 2)}`;
                     user_id: userId,
                     title: text
                         ? text.slice(0, 60)
-                        : video
+                        : video_url
                             ? "Video analysis"
-                            : "New chat",
+                            : image_url
+                                ? "Image analysis"
+                                : "New chat",
                     created_at: new Date().toISOString(),
                 }),
             });
@@ -264,11 +266,11 @@ ${JSON.stringify(analysisContext, null, 2)}`;
             body: JSON.stringify({
                 chat_id: currentChatId,
                 role: "user",
-                content: text || (video ? "[Video submitted]" : null),
+                content: text || (video_url ? "[Video submitted]" : null),
                 image_url: image_url || null,
                 // відео-ссилку спеціально в окремий стовпчик не пишемо,
                 // але при бажанні можна додати у debug або розширити схему.
-                debug: video ? { video } : null,
+                debug: video_url ? { video_url } : null,
             }),
         });
 

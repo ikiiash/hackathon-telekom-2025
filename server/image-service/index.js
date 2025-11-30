@@ -33,27 +33,27 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.post("/analyze-video", upload.single("videoFile"), async (req, res) => {
+app.post("/analyze-video", async (req, res) => {
   let videoPath;
 
   try {
-    if (req.file) {
-      videoPath = req.file.path;
-    } else if (req.body.videoUrl) {
-      const videoUrl = req.body.videoUrl;
-      const resp = await fetch(videoUrl);
-      if (!resp.ok) throw new Error("Failed to download video");
-
-      videoPath = path.join(VIDEOS_DIR, `video_${Date.now()}.mp4`);
-      const fileStream = fs.createWriteStream(videoPath);
-      await new Promise((resolve, reject) => {
-        resp.body.pipe(fileStream);
-        resp.body.on("error", reject);
-        fileStream.on("finish", resolve);
-      });
-    } else {
-      return res.status(400).json({ error: "videoFile or videoUrl required" });
+    const { video_url } = req.body;
+    
+    if (!video_url) {
+      return res.status(400).json({ error: "video_url required" });
     }
+
+    // Download video from URL
+    const resp = await fetch(video_url);
+    if (!resp.ok) throw new Error("Failed to download video");
+
+    videoPath = path.join(VIDEOS_DIR, `video_${Date.now()}.mp4`);
+    const fileStream = fs.createWriteStream(videoPath);
+    await new Promise((resolve, reject) => {
+      resp.body.pipe(fileStream);
+      resp.body.on("error", reject);
+      fileStream.on("finish", resolve);
+    });
 
     const framesPattern = path.join(FRAMES_DIR, "frame_%03d.png");
     await new Promise((resolve, reject) => {
@@ -151,6 +151,10 @@ app.post("/analyze-video", upload.single("videoFile"), async (req, res) => {
     fs.readdirSync(FRAMES_DIR).forEach(f =>
       fs.unlinkSync(path.join(FRAMES_DIR, f))
     );
+    // Clean up downloaded video
+    if (videoPath && fs.existsSync(videoPath)) {
+      fs.unlinkSync(videoPath);
+    }
   }
 });
 
