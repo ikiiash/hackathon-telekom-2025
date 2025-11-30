@@ -3,7 +3,7 @@ import { OpenAIConfig } from "../configs/openAI-config.ts";
 
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY"); // ДОДАЛИ
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!OPENAI_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY || !SERVICE_ROLE_KEY) {
@@ -16,11 +16,19 @@ serve(async (req) => {
             return json({ error: "Only POST allowed" }, 405);
         }
 
-        const { text, image_url, chat_id } = await req.json().catch(() => ({}));
+        const form = await req.formData();
 
-        if (!text && !image_url) {
+        const text = form.get("text");
+        const image = form.get("image");
+        const chat_id = form.get("chat_id");
+        const video = form.get("video");
+
+        if (!text && !image && !video) {
             return json(
-                { error: "At least 'text' or 'image_url' is required" },
+                {
+                    error:
+                        "At least one of 'text', 'image_url' or 'video_url' is required",
+                },
                 400,
             );
         }
@@ -43,13 +51,14 @@ serve(async (req) => {
             return json({ error: "Invalid user token" }, 401);
         }
 
-        // -------- 2. PIPELINE: image / text / fact-check --------
+        // -------- 2. PIPELINE: image / text / fact-check / video --------
         let imageAnalysis: any = null;
         let textFacts: any = null;
         let factCheckResults: any = null;
+        let videoAnalysis: any = null;
 
         // 2.1 image-check
-        if (image_url) {
+        if (image) {
             try {
                 const imageResp = await fetch(
                     `${SUPABASE_URL}/functions/v1/image-check`,
@@ -59,7 +68,7 @@ serve(async (req) => {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${SERVICE_ROLE_KEY}`, // сервіс-роль для внутрішньої функції
                         },
-                        body: JSON.stringify({ image_url }),
+                        body: JSON.stringify({ image }),
                     },
                 );
                 if (imageResp.ok) imageAnalysis = await imageResp.json();
@@ -107,20 +116,51 @@ serve(async (req) => {
                         }),
                     },
                 );
-                if (factCheckResp.ok) factCheckResults = await factCheckResp.json();
-                else console.error("fact-check:", await factCheckResp.text());
+                if (factCheckResp.ok) {
+                    factCheckResults = await factCheckResp.json();
+                } else console.error("fact-check:", await factCheckResp.text());
             } catch (e) {
                 console.error("Fact check failed:", e);
+            }
+        }
+
+
+        // 2.4 video-analysis (локальний сервіс)
+        if (video) {
+            try {
+                const videoResp = await fetch(
+                    "http://localhost:3000/analyze-video",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            video,
+                            // якщо потрібно — можна додати ще meta, userId, etc.
+                        }),
+                    },
+                );
+
+                if (videoResp.ok) {
+                    videoAnalysis = await videoResp.json();
+                } else {
+                    console.error("video-analysis:", await videoResp.text());
+                }
+            } catch (e) {
+                console.error("Video analysis failed:", e);
             }
         }
 
         // -------- 3. Відповідь через OpenAI --------
         const analysisContext = {
             user_text: text || "(no text provided)",
-            user_image: image_url ? "User provided an image" : "No image provided",
+            user_image: image ? "User provided an image" : "No image provided",
+            user_video: video ? "User provided a video" : "No video provided",
             image_analysis: imageAnalysis,
             extracted_facts: textFacts,
             fact_check_results: factCheckResults,
+            video_analysis: videoAnalysis,
         };
 
         const finalPrompt = `${OpenAIConfig.PROMPTS.FINAL_RESPONSE_GENERATION}
@@ -159,13 +199,18 @@ ${JSON.stringify(analysisContext, null, 2)}`;
         if (!openaiResp.ok) {
             console.error("OpenAI error:", await openaiResp.text());
             return json(
-                { error: "Failed to generate final response", status: openaiResp.status },
+                {
+                    error: "Failed to generate final response",
+                    status: openaiResp.status,
+                },
                 500,
             );
         }
 
         const ai = await openaiResp.json();
-        const finalResponse = ai.choices?.[0]?.message?.content as string | undefined;
+        const finalResponse = ai.choices?.[0]?.message?.content as
+            | string
+            | undefined;
 
         if (!finalResponse) {
             return json({ error: "OpenAI returned empty response" }, 500);
@@ -186,7 +231,11 @@ ${JSON.stringify(analysisContext, null, 2)}`;
                 },
                 body: JSON.stringify({
                     user_id: userId,
-                    title: text ? text.slice(0, 60) : "New chat",
+                    title: text
+                        ? text.slice(0, 60)
+                        : video
+                            ? "Video analysis"
+                            : "New chat",
                     created_at: new Date().toISOString(),
                 }),
             });
@@ -204,7 +253,8 @@ ${JSON.stringify(analysisContext, null, 2)}`;
             return json({ error: "Could not determine chat_id" }, 500);
         }
 
-        // -------- 5. Збереження повідомлень --------
+// -------- 5. Збереження повідомлень --------
+
 
         // 5.1 user message
         await fetch(`${SUPABASE_URL}/rest/v1/message`, {
@@ -218,9 +268,11 @@ ${JSON.stringify(analysisContext, null, 2)}`;
             body: JSON.stringify({
                 chat_id: currentChatId,
                 role: "user",
-                content: text || null,
-                image_url: image_url || null,
-                debug: null,
+                content: text || (video ? "[Video submitted]" : null),
+                image_url: image || null,
+                // відео-ссилку спеціально в окремий стовпчик не пишемо,
+                // але при бажанні можна додати у debug або розширити схему.
+                debug: video ? { video } : null,
             }),
         });
 
@@ -242,6 +294,7 @@ ${JSON.stringify(analysisContext, null, 2)}`;
                     image_analysis: imageAnalysis,
                     text_facts: textFacts,
                     fact_check: factCheckResults,
+                    video_analysis: videoAnalysis,
                 },
             }),
         });
@@ -250,6 +303,12 @@ ${JSON.stringify(analysisContext, null, 2)}`;
             {
                 chat_id: currentChatId,
                 response: finalResponse,
+                debug: {
+                    image_analysis: imageAnalysis,
+                    text_facts: textFacts,
+                    fact_check: factCheckResults,
+                    video_analysis: videoAnalysis,
+                },
             },
             200,
         );
