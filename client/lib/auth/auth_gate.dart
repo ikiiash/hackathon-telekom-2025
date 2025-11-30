@@ -2,12 +2,12 @@
  * AUTH GATE - this will continuosly listen to auth state changes.
 
  * unauthenticated -> Login Page
- * authenticated -> Profile Page
+ * authenticated -> Chat Page
  */
 
 import 'package:flutter/material.dart';
 import 'package:namer_app/pages/login_page.dart';
-import 'package:namer_app/pages/profile_page.dart';
+import 'package:namer_app/pages/chat_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatelessWidget {
@@ -32,7 +32,7 @@ class AuthGate extends StatelessWidget {
         final session = snapshot.hasData ? snapshot.data!.session : null;
         if (session != null) {
           // * User is authenticated
-          return const ProfilePage();
+          return const ChatPage();
         } else {
           // * User is not authenticated
           return const LoginPage();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:namer_app/auth/auth_service.dart';
+import '../widgets/dotted_background.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,6 +15,10 @@ class _ProfilePageState extends State<ProfilePage> {
   // * logout button pressed
   void logout() async {
     await authService.signOut();
+    // Navigate back to root (AuthGate) which will redirect to LoginPage
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   @override
@@ -29,9 +34,18 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: Colors.grey.shade100,
         foregroundColor: Colors.black87,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
+      body: DottedBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Column(
           children: [
             const SizedBox(height: 20),
 
@@ -110,6 +124,12 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -129,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
           fontWeight: FontWeight.w400,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.black26),
+      trailing: const Icon(Icons.arrow_forward_ios_outlined, size: 18, color: Colors.black26),
       onTap: onTap,
     );
   }

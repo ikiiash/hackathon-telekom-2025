@@ -5,6 +5,11 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
+import '../widgets/dotted_background.dart';
+import '../widgets/chat_header.dart';
+import '../widgets/chat_input.dart';
+import '../widgets/chat_drawer.dart';
+import 'profile_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -141,6 +146,15 @@ class _ChatPageState extends State<ChatPage> {
     return result.toString();
   }
 
+  void _clearChat() {
+    setState(() {
+      _messages.clear();
+      _selectedImage = null;
+      _messageController.clear();
+    });
+  }
+
+
 
   void _showNotification(String message) {
     if (!mounted) return;
@@ -220,52 +234,46 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('TrustAI'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('How it works'),
-                  content: const Text(
-                    'Send text or images to check for:\n\n'
-                    '• Fact accuracy\n'
-                    '• AI-generated content\n'
-                    '• Image manipulation\n'
-                    '• EXIF data analysis\n\n'
-                    'Results are powered by AI analysis.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Got it'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+      drawer: ChatDrawer(
+        onProfilePressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfilePage()),
+          );
+        },
+        onNewChatPressed: _clearChat,
       ),
-      body: Column(
-        children: [
-          // Messages list
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Column(
+      body: Builder(
+        builder: (BuildContext scaffoldContext) {
+          return DottedBackground(
+            child: Column(
+              children: [
+                // Custom header
+                ChatHeader(
+                  onMenuPressed: () {
+                    Scaffold.of(scaffoldContext).openDrawer();
+                  },
+                  onProfilePressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ProfilePage()),
+                    );
+                  },
+                  onNewChatPressed: _clearChat,
+                ),
+            // Messages list
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.verified_user,
-                            size: 80,
-                            color: Colors.red[600],
+                          Image.asset(
+                            'lib/assets/logo.png',
+                            width: 80,
+                            height: 80,
                           ),
                           const SizedBox(height: 24),
                           Text(
@@ -332,116 +340,23 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
 
-          // Image preview
-          if (_selectedImage != null)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      _selectedImage!,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text('Image selected'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _selectedImage = null;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-          // Input field - Capsule design
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Paperclip icon inside capsule
-                    IconButton(
-                      icon: Icon(Icons.attach_file, size: 24, color: Colors.grey[700]),
-                      onPressed: _isLoading ? null : _pickImage,
-                      tooltip: 'Attach image',
-                      padding: const EdgeInsets.all(8),
-                    ),
-                    // Text field
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 100),
-                        child: SingleChildScrollView(
-                          child: TextField(
-                            controller: _messageController,
-                            decoration: InputDecoration(
-                              hintText: 'Message TrustAI...',
-                              hintStyle: TextStyle(color: Colors.grey[600]),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                              isDense: true,
-                            ),
-                            maxLines: null,
-                            textCapitalization: TextCapitalization.sentences,
-                            enabled: !_isLoading,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Send button inside capsule
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isLoading ? null : _sendMessage,
-                        borderRadius: BorderRadius.circular(25),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          child: Icon(
-                            Icons.send,
-                            color: _isLoading ? Colors.grey[600] : Colors.grey[800],
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // Input widget
+          ChatInput(
+            messageController: _messageController,
+            selectedImage: _selectedImage,
+            isLoading: _isLoading,
+            onPickImage: _pickImage,
+            onRemoveImage: () {
+              setState(() {
+                _selectedImage = null;
+              });
+            },
+            onSendMessage: _sendMessage,
           ),
         ],
+      ),
+      );
+        },
       ),
     );
   }
@@ -518,7 +433,7 @@ class _MessageBubble extends StatelessWidget {
             CircleAvatar(
               radius: 16,
               backgroundColor: Colors.red[100],
-              child: const Icon(Icons.person, size: 16),
+              child: const Icon(Icons.person_outline, size: 16),
             ),
           ],
         ],

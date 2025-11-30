@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:namer_app/config/supabase_config.dart';
-import 'package:namer_app/pages/chat_page.dart';
+import 'package:namer_app/auth/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -29,10 +29,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
         useMaterial3: true,
       ),
-      // Temporarily bypass auth - go directly to chat
-      home: const ChatPage(),
-      // Uncomment this line when you want to re-enable auth:
-      // home: AuthGate(),
+      home: const AuthGate(),
     );
   }
 }
