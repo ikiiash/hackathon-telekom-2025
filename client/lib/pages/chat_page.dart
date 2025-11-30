@@ -152,6 +152,7 @@ class _ChatPageState extends State<ChatPage> {
       type: MessageType.user,
       timestamp: DateTime.now(),
       imagePath: _selectedImage?.path,
+      videoPath: _selectedVideo?.path,
       status: MessageStatus.sent,
     );
 
@@ -624,7 +625,7 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (message.videoUrl != null)
+                  if (message.videoPath != null || message.videoUrl != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Container(

@@ -10,6 +10,7 @@ class ChatMessage {
   final String? imageUrl;
   final String? videoUrl;
   final String? imagePath; // Local path for preview
+  final String? videoPath; // Local path for video preview
   final MessageStatus status;
   final Map<String, dynamic>? analysisResult;
 
@@ -21,6 +22,7 @@ class ChatMessage {
     this.imageUrl,
     this.videoUrl,
     this.imagePath,
+    this.videoPath,
     this.status = MessageStatus.sent,
     this.analysisResult,
   });
@@ -33,6 +35,7 @@ class ChatMessage {
     String? imageUrl,
     String? videoUrl,
     String? imagePath,
+    String? videoPath,
     MessageStatus? status,
     Map<String, dynamic>? analysisResult,
   }) {
@@ -44,6 +47,7 @@ class ChatMessage {
       imageUrl: imageUrl ?? this.imageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       imagePath: imagePath ?? this.imagePath,
+      videoPath: videoPath ?? this.videoPath,
       status: status ?? this.status,
       analysisResult: analysisResult ?? this.analysisResult,
     );
