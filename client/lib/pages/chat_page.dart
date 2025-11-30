@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
 import '../widgets/dotted_background.dart';
 import '../widgets/chat_header.dart';
 import '../widgets/chat_input.dart';
-import '../widgets/chat_drawer.dart';
+import '../widgets/chat_drawer.dart'; // тут є ChatDrawer і ChatListItem
 import 'profile_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -26,14 +27,71 @@ class _ChatPageState extends State<ChatPage> {
   final List<ChatMessage> _messages = [];
   final Uuid _uuid = const Uuid();
 
+  /// Список чатів поточного юзера (для бокового меню)
+  final List<ChatListItem> _chats = [];
+
   File? _selectedImage;
   bool _isLoading = false;
+
+  /// Поточний активний чат (id з БД). Якщо null — це новий чат,
+  /// який ще не збережений у таблиці `chat`.
+  String? _currentChatId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChats();
+  }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadChats() async {
+    try {
+      final rawChats = await _chatService.fetchChats();
+      setState(() {
+        _chats
+          ..clear()
+          ..addAll(
+            rawChats.map((row) {
+              return ChatListItem(
+                id: row['id'] as String,
+                title: (row['title'] as String?) ?? '',
+                updatedAt: row['updated_at'] != null
+                    ? DateTime.parse(row['updated_at'] as String)
+                    : null,
+              );
+            }),
+          );
+      });
+    } catch (e) {
+      debugPrint('Failed to load chats: $e');
+    }
+  }
+
+  Future<void> _openChat(ChatListItem chat) async {
+    try {
+      final loadedMessages =
+      await _chatService.fetchChatMessages(chat.id); // з БД -> ChatMessage
+
+      setState(() {
+        _currentChatId = chat.id;
+        _messages
+          ..clear()
+          ..addAll(loadedMessages);
+        _selectedImage = null;
+        _messageController.clear();
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    } catch (e) {
+      debugPrint('Failed to open chat: $e');
+      _showNotification('Failed to load chat. Please try again.');
+    }
   }
 
   void _scrollToBottom() {
@@ -50,8 +108,6 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        // IMPORTANT: No compression/resizing to preserve EXIF metadata
-        // maxWidth, maxHeight, and imageQuality would strip metadata
       );
 
       if (image != null) {
@@ -66,9 +122,10 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    
+
     if (text.isEmpty && _selectedImage == null) return;
 
+    // 1) локальне user-повідомлення (саме те, що ввів юзер)
     final userMessage = ChatMessage(
       id: _uuid.v4(),
       text: text,
@@ -91,14 +148,34 @@ class _ChatPageState extends State<ChatPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
+
     try {
-      // Send to Edge Function
+      // текст, який піде на бекенд:
+      final String? backendText;
+      if (text.isEmpty && imageFile != null) {
+        backendText =
+        'Analyze this image for authenticity, AI generation, and possible manipulations.';
+      } else if (text.isEmpty) {
+        backendText = null;
+      } else {
+        backendText = text;
+      }
+
       final result = await _chatService.processMessage(
-        text: text.isEmpty ? 'Analyze this image for authenticity and AI generation.' : text,
+        text: backendText,
         imageFile: imageFile,
+        chatId: _currentChatId, // якщо null -> бекенд створить новий чат
       );
 
-      // Create bot response
+      // якщо це був перший меседж у новому чаті — зберігаємо chat_id
+      final newChatId = result['chat_id'] as String?;
+      if (_currentChatId == null && newChatId != null) {
+        _currentChatId = newChatId;
+        // оновлюємо список чатів у боковому меню
+        await _loadChats();
+      }
+
+      // створюємо відповідь бота
       final botMessage = ChatMessage(
         id: _uuid.v4(),
         text: _formatAnalysisResult(result),
@@ -118,8 +195,7 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _isLoading = false;
       });
-      
-      // Add bot error response
+
       final errorMessage = ChatMessage(
         id: _uuid.v4(),
         text: 'Sorry, I couldn\'t process that. Please try again.',
@@ -131,34 +207,34 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _messages.add(errorMessage);
       });
-      
+
       _showNotification('Unable to analyze content. Please try again.');
     }
   }
 
   String _formatAnalysisResult(Map<String, dynamic> result) {
-    // Return the response directly from the backend
     if (result.containsKey('response')) {
       return result['response'];
     }
-    
-    // Fallback: return JSON as string if no response field
     return result.toString();
   }
 
-  void _clearChat() {
+  /// New Chat:
+  /// - чистить локальні повідомлення
+  /// - скидає _currentChatId = null
+  /// Запис у БД зʼявиться тільки після першої відповіді бота.
+  void _startNewChat() {
     setState(() {
       _messages.clear();
       _selectedImage = null;
       _messageController.clear();
+      _currentChatId = null;
     });
   }
 
-
-
   void _showNotification(String message) {
     if (!mounted) return;
-    
+
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -168,7 +244,8 @@ class _ChatPageState extends State<ChatPage> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -182,7 +259,8 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.grey[800], size: 22),
+                Icon(Icons.info_outline,
+                    color: Colors.grey[800], size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -202,7 +280,7 @@ class _ChatPageState extends State<ChatPage> {
     );
 
     overlay.insert(overlayEntry);
-    
+
     Future.delayed(const Duration(seconds: 3), () {
       overlayEntry.remove();
     });
@@ -211,6 +289,7 @@ class _ChatPageState extends State<ChatPage> {
   void _showError(String message) {
     _showNotification(message);
   }
+
 
   Widget _buildCapabilityChip(String text) {
     return Container(
@@ -234,130 +313,146 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: ChatDrawer(
-        onProfilePressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfilePage()),
-          );
-        },
-        onNewChatPressed: _clearChat,
-      ),
-      body: Builder(
-        builder: (BuildContext scaffoldContext) {
-          return DottedBackground(
-            child: Column(
-              children: [
-                // Custom header
-                ChatHeader(
-                  onMenuPressed: () {
-                    Scaffold.of(scaffoldContext).openDrawer();
-                  },
-                  onProfilePressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProfilePage()),
-                    );
-                  },
-                  onNewChatPressed: _clearChat,
-                ),
-            // Messages list
-            Expanded(
-              child: _messages.isEmpty
-                  ? Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'lib/assets/logo.png',
-                            width: 80,
-                            height: 80,
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'TrustAI',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red[700],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Your AI-Powered\nFact-Checking Assistant',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          _buildCapabilityChip('✓ Fact-Checking Analysis'),
-                          const SizedBox(height: 12),
-                          _buildCapabilityChip('✓ AI-Generated Content Detection'),
-                          const SizedBox(height: 12),
-                          _buildCapabilityChip('✓ Image Authenticity Verification'),
-                          const SizedBox(height: 40),
-                          Text(
-                            'Send a message or image to get started',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return _MessageBubble(message: _messages[index]);
-                    },
-                  ),
-          ),
-
-          // Loading indicator
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  SizedBox(width: 16),
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text('Analyzing...'),
-                ],
+        drawer: ChatDrawer(
+          chats: _chats,
+          onChatSelected: (chat) => _openChat(chat),
+          onProfilePressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ProfilePage(),
               ),
-            ),
+            );
+          },
+          onNewChatPressed: _startNewChat,
+        ),
+        body: Builder(
+            builder: (BuildContext scaffoldContext) {
+              return DottedBackground(
+                child: Column(
+                    children: [
+                    // Header
+                    ChatHeader(
+                    onMenuPressed: () {
+              Scaffold.of(scaffoldContext).openDrawer();
+              },
+                onProfilePressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  );
+                },
+                onNewChatPressed: _startNewChat,
+              ),
 
-          // Input widget
-          ChatInput(
-            messageController: _messageController,
-            selectedImage: _selectedImage,
-            isLoading: _isLoading,
-            onPickImage: _pickImage,
-            onRemoveImage: () {
-              setState(() {
-                _selectedImage = null;
-              });
+              // Messages list
+              Expanded(
+              child: _messages.isEmpty
+              ? Center(
+              child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+              Image.asset(
+              'lib/assets/logo.png',
+              width: 80,
+              height: 80,
+              ),
+              const SizedBox(height: 24),
+              Text(
+              'TrustAI',
+              style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.red[700],
+              ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+              'Your AI-Powered\nFact-Checking Assistant',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+              ),
+              ),
+              const SizedBox(height: 32),
+              _buildCapabilityChip(
+              '✓ Fact-Checking Analysis',
+              ),
+              const SizedBox(height: 12),
+              _buildCapabilityChip(
+              '✓ AI-Generated Content Detection',
+              ),
+              const SizedBox(height: 12),
+              _buildCapabilityChip(
+              '✓ Image Authenticity Verification',
+              ),
+              const SizedBox(height: 40),
+              Text(
+              'Send a message or image to get started',
+
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+              ),
+              ],
+              ),
+              ),
+              )
+                  : ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  return _MessageBubble(
+                    message: _messages[index],
+                  );
+                },
+              ),
+              ),
+
+                      // Loading indicator
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 16),
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Analyzing...'),
+                            ],
+                          ),
+                        ),
+
+                      // Input widget
+                      ChatInput(
+                        messageController: _messageController,
+                        selectedImage: _selectedImage,
+                        isLoading: _isLoading,
+                        onPickImage: _pickImage,
+                        onRemoveImage: () {
+                          setState(() {
+                            _selectedImage = null;
+                          });
+                        },
+                        onSendMessage: _sendMessage,
+                      ),
+                    ],
+                ),
+              );
             },
-            onSendMessage: _sendMessage,
-          ),
-        ],
-      ),
-      );
-        },
-      ),
+        ),
     );
   }
 }
@@ -372,11 +467,12 @@ class _MessageBubble extends StatelessWidget {
     final isUser = message.type == MessageType.user;
     final timeFormat = DateFormat('HH:mm');
 
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
