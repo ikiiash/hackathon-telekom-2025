@@ -41,7 +41,7 @@ class ChatHeader extends StatelessWidget {
             
             // App title
             const Text(
-              'TrustAI',
+              'VerifAI',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,

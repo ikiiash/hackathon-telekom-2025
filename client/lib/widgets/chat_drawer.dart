@@ -226,9 +226,9 @@ class ChatDrawer extends StatelessWidget {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('About TrustAI'),
+                  title: const Text('About VerifAI'),
                   content: const Text(
-                    'TrustAI v1.0\n\n'
+                    'VerifAI v1.0\n\n'
                         'AI-powered fact-checking assistant that helps you:\n\n'
                         '• Verify factual claims\n'
                         '• Detect AI-generated content\n'

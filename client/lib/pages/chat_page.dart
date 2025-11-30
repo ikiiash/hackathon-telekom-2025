@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:lottie/lottie.dart';
 
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
@@ -150,19 +151,8 @@ class _ChatPageState extends State<ChatPage> {
 
 
     try {
-      // текст, який піде на бекенд:
-      final String? backendText;
-      if (text.isEmpty && imageFile != null) {
-        backendText =
-        'Analyze this image for authenticity, AI generation, and possible manipulations.';
-      } else if (text.isEmpty) {
-        backendText = null;
-      } else {
-        backendText = text;
-      }
-
       final result = await _chatService.processMessage(
-        text: backendText,
+        text: text.isEmpty ? null : text,
         imageFile: imageFile,
         chatId: _currentChatId, // якщо null -> бекенд створить новий чат
       );
@@ -310,6 +300,41 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Widget _buildCapabilityPill(String text) {
+    IconData icon;
+    if (text.contains('image')) {
+      icon = Icons.image_outlined;
+    } else if (text.contains('text')) {
+      icon = Icons.description_outlined;
+    } else {
+      icon = Icons.link_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.red[300]!, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[700]),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -351,60 +376,101 @@ class _ChatPageState extends State<ChatPage> {
               Expanded(
               child: _messages.isEmpty
               ? Center(
-              child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
               child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-              Image.asset(
-              'lib/assets/logo.png',
-              width: 80,
-              height: 80,
+              Text(
+              'Hello I\'m Evida',
+              style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+              ),
+              ),
+              const SizedBox(height: 24),
+              Lottie.asset(
+              'assets/bot_animation/Untitled file.json',
+              width: 220,
+              height: 220,
+              fit: BoxFit.contain,
               ),
               const SizedBox(height: 24),
               Text(
-              'TrustAI',
+              'How can I help you?',
               style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.red[700],
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
               ),
               ),
               const SizedBox(height: 16),
-              Text(
-              'Your AI-Powered\nFact-Checking Assistant',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
-              ),
-              ),
-              const SizedBox(height: 32),
-              _buildCapabilityChip(
-              '✓ Fact-Checking Analysis',
-              ),
-              const SizedBox(height: 12),
-              _buildCapabilityChip(
-              '✓ AI-Generated Content Detection',
-              ),
-              const SizedBox(height: 12),
-              _buildCapabilityChip(
-              '✓ Image Authenticity Verification',
-              ),
-              const SizedBox(height: 40),
-              Text(
-              'Send a message or image to get started',
-
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
+              Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+              _buildCapabilityPill('Check image'),
+              _buildCapabilityPill('Check text'),
+              ],
               ),
               ],
               ),
-              ),
               )
+              // ? Center(
+              // child: SingleChildScrollView(
+              // padding: const EdgeInsets.all(32.0),
+              // child: Column(
+              // mainAxisAlignment: MainAxisAlignment.center,
+              // children: [
+              // Image.asset(
+              // 'assets/logo.png',
+              // width: 80,
+              // height: 80,
+              // ),
+              // const SizedBox(height: 24),
+              // Text(
+              // 'TrustAI',
+              // style: TextStyle(
+              // fontSize: 32,
+              // fontWeight: FontWeight.bold,
+              // color: Colors.red[700],
+              // ),
+              // ),
+              // const SizedBox(height: 16),
+              // Text(
+              // 'Your AI-Powered\nFact-Checking Assistant',
+              // textAlign: TextAlign.center,
+              // style: TextStyle(
+              // fontSize: 20,
+              // fontWeight: FontWeight.w500,
+              // color: Colors.grey[700],
+              // ),
+              // ),
+              // const SizedBox(height: 32),
+              // _buildCapabilityChip(
+              // '✓ Fact-Checking Analysis',
+              // ),
+              // const SizedBox(height: 12),
+              // _buildCapabilityChip(
+              // '✓ AI-Generated Content Detection',
+              // ),
+              // const SizedBox(height: 12),
+              // _buildCapabilityChip(
+              // '✓ Image Authenticity Verification',
+              // ),
+              // const SizedBox(height: 40),
+              // Text(
+              // 'Send a message or image to get started',
+
+              //   style: TextStyle(
+              //     fontSize: 14,
+              //     color: Colors.grey[500],
+              //   ),
+              // ),
+              // ],
+              // ),
+              // ),
+              // )
                   : ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
@@ -478,8 +544,15 @@ class _MessageBubble extends StatelessWidget {
           if (!isUser) ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: Colors.red[100],
-              child: const Icon(Icons.smart_toy, size: 16),
+              backgroundColor: Colors.transparent,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/bot_small.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -502,6 +575,26 @@ class _MessageBubble extends StatelessWidget {
                           File(message.imagePath!),
                           width: 200,
                           fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  if (message.imagePath == null && message.imageUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          message.imageUrl!,
+                          width: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 200,
+                              height: 100,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.broken_image, size: 40),
+                            );
+                          },
                         ),
                       ),
                     ),

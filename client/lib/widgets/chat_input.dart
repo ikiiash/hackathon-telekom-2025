@@ -27,7 +27,7 @@ class ChatInput extends StatelessWidget {
         // Image preview
         if (selectedImage != null)
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Row(
               children: [
                 ClipRRect(
@@ -53,7 +53,7 @@ class ChatInput extends StatelessWidget {
 
         // Input field - Capsule design
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: SafeArea(
             child: Container(
               constraints: const BoxConstraints(maxHeight: 120),
@@ -84,7 +84,7 @@ class ChatInput extends StatelessWidget {
                         child: TextField(
                           controller: messageController,
                           decoration: InputDecoration(
-                            hintText: 'Message TrustAI...',
+                            hintText: 'Message VerifAI...',
                             hintStyle: TextStyle(color: Colors.grey[500]),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),

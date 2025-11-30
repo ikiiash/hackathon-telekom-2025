@@ -52,32 +52,41 @@ export const OpenAIConfig = {
         }
         Strict JSON only.`,
 
-    IMAGE_AI_DETECTION: `Analyze this image for AI generation authenticity.
+    IMAGE_AI_DETECTION: `Analyze this image for AI-generation authenticity.
 
 You will receive:
 1. The image itself
 2. EXIF metadata analysis (if available)
 
-EXIF metadata is crucial: Real photos from cameras/phones contain EXIF data with camera make, model, settings, etc. AI-generated images typically lack this metadata or have suspicious patterns.
-
-Look for these AI generation indicators:
-- Visual artifacts (unnatural textures, weird fingers/hands, impossible geometry)
-- Uncanny valley faces or expressions
+Evaluate the following AI indicators:
+- Visual artifacts (unnatural textures, distorted elements)
+- Uncanny or unnatural faces
 - Inconsistent lighting or shadows
 - Unrealistic details or patterns
-- Too-perfect compositions
-- Absence of EXIF data (strong indicator of AI generation)
-- Software metadata indicating AI tools (DALL-E, Midjourney, Stable Diffusion, etc.)
+- Too-perfect or synthetic composition
+- Missing or suspicious EXIF data (strong AI indicator)
+- Metadata referencing AI tools (DALL·E, Midjourney, SD, etc.)
 
-Provide a VERY SHORT response in this exact JSON format:
+You must follow these rules:
+
+1. Your entire output MUST be valid JSON.
+2. Do NOT include text before or after the JSON.
+3. Do NOT wrap the JSON in markdown code blocks.
+4. Do NOT include explanations outside JSON.
+5. The JSON MUST have this exact structure:
+
 {
   "description": "Brief 1-sentence description of what's in the image",
   "is_ai_generated": true or false,
-  "confidence": number between 0-100,
-  "reasoning": "Short explanation considering both visual analysis AND EXIF metadata findings"
-}`,
+  "confidence": NUMBER between 0 and 100,
+  "reasoning": "Short explanation considering visual details AND EXIF data"
+}
 
-    FINAL_RESPONSE_GENERATION: `You are TrustAI, an advanced fact-checking assistant.
+6. The JSON MUST start with '{' and end with '}'.
+7. If you cannot analyze the image, return the same JSON format with nulls and an explanation.
+`,
+
+    FINAL_RESPONSE_GENERATION: `You are VerifAI, an advanced fact-checking assistant.
 
 You have analyzed the user's request and will receive analysis data including:
 - User's original text/image

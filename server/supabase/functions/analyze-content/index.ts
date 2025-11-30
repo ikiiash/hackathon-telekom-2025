@@ -15,15 +15,11 @@ serve(async (req) => {
         if (req.method !== "POST") {
             return json({ error: "Only POST allowed" }, 405);
         }
+        
+        const { text, image_url, chat_id, video } = await req.json().catch(() => ({}));
 
-        const form = await req.formData();
 
-        const text = form.get("text");
-        const image = form.get("image");
-        const chat_id = form.get("chat_id");
-        const video = form.get("video");
-
-        if (!text && !image && !video) {
+        if (!text && !image_url && !video) {
             return json(
                 {
                     error:
@@ -58,7 +54,7 @@ serve(async (req) => {
         let videoAnalysis: any = null;
 
         // 2.1 image-check
-        if (image) {
+        if (image_url) {
             try {
                 const imageResp = await fetch(
                     `${SUPABASE_URL}/functions/v1/image-check`,
@@ -68,7 +64,7 @@ serve(async (req) => {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${SERVICE_ROLE_KEY}`, // сервіс-роль для внутрішньої функції
                         },
-                        body: JSON.stringify({ image }),
+                        body: JSON.stringify({ image_url }),
                     },
                 );
                 if (imageResp.ok) imageAnalysis = await imageResp.json();
@@ -155,7 +151,7 @@ serve(async (req) => {
         // -------- 3. Відповідь через OpenAI --------
         const analysisContext = {
             user_text: text || "(no text provided)",
-            user_image: image ? "User provided an image" : "No image provided",
+            user_image: image_url ? "User provided an image" : "No image provided",
             user_video: video ? "User provided a video" : "No video provided",
             image_analysis: imageAnalysis,
             extracted_facts: textFacts,
@@ -183,7 +179,7 @@ ${JSON.stringify(analysisContext, null, 2)}`;
                         {
                             role: "system",
                             content:
-                                "You are TrustAI, a helpful fact-checking assistant.",
+                                "You are VerifAI, a helpful fact-checking assistant.",
                         },
                         {
                             role: "user",
@@ -269,7 +265,7 @@ ${JSON.stringify(analysisContext, null, 2)}`;
                 chat_id: currentChatId,
                 role: "user",
                 content: text || (video ? "[Video submitted]" : null),
-                image_url: image || null,
+                image_url: image_url || null,
                 // відео-ссилку спеціально в окремий стовпчик не пишемо,
                 // але при бажанні можна додати у debug або розширити схему.
                 debug: video ? { video } : null,

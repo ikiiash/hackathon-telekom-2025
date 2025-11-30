@@ -147,8 +147,8 @@ class ChatService {
           text: row['content'] as String? ?? '',
           type: isUser ? MessageType.user : MessageType.bot,
           timestamp: DateTime.parse(row['created_at'] as String),
-          imagePath:
-          null, // якщо хочеш показувати image_url -> можеш зберігати в окреме поле
+          imageUrl: row['image_url'] as String?,
+          imagePath: null,
           status: MessageStatus.sent,
           analysisResult: row['debug'] is Map<String, dynamic>
               ? row['debug'] as Map<String, dynamic>
